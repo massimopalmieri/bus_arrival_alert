@@ -1,0 +1,10 @@
+{
+  "name": "Bus Arrival Alert",
+  "content_in_root": false,
+  "domain": "bus_arrival_alert",
+  "documentation": "https://github.com/massimopalmieri/home-assistant-bus-arrival-alert",
+  "codeowners": ["@massimopalmieri"],
+  "requirements": [],
+  "iot_class": "cloud_polling",
+  "render_readme": true
+}
