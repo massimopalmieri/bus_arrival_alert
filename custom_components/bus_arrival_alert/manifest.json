@@ -1,9 +1,10 @@
 {
   "domain": "bus_arrival_alert",
   "name": "Bus Arrival Alert",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "documentation": "https://github.com/massimopalmieri/bus_arrival_alert",
   "requirements": [],
   "dependencies": [],
-  "codeowners": ["@massimopalmieri"]
+  "codeowners": ["@massimopalmieri"],
+  "config_flow": true
 }
