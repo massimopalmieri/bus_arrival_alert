@@ -6,5 +6,9 @@
   "requirements": [],
   "dependencies": [],
   "codeowners": ["@massimopalmieri"],
-  "config_flow": true
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "integration_type": "hub",
+  "supported_platforms": ["sensor"],
+  "options_flow": true
 }

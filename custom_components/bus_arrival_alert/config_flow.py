@@ -6,19 +6,8 @@ from typing import Any
 
 from homeassistant import config_entries
 from homeassistant.core import callback
-import homeassistant.helpers.config_validation as cv
 
 from .const import DOMAIN
-
-DAYS_OF_WEEK = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday"
-]
 
 class BusArrivalAlertConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Bus Arrival Alert."""
@@ -34,12 +23,14 @@ class BusArrivalAlertConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=user_input["name"],
                 data={
-                    "name": user_input["name"],
-                    "stop_id": user_input["stop_id"],
-                    "line_names": line_names,
-                    "start_time": user_input["start_time"],
-                    "end_time": user_input["end_time"],
-                    "days": user_input.get("days", [])
+                    "stops": [
+                        {
+                            "name": user_input["name"],
+                            "stop_id": user_input["stop_id"],
+                            "line_names": line_names
+                        }
+                    ],
+                    "scan_interval": user_input.get("scan_interval", 60)
                 },
             )
 
@@ -47,9 +38,7 @@ class BusArrivalAlertConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required("name"): str,
             vol.Required("stop_id"): str,
             vol.Optional("line_names", default=""): str,
-            vol.Required("start_time"): str,
-            vol.Required("end_time"): str,
-            vol.Optional("days", default=[]): cv.multi_select(DAYS_OF_WEEK),
+            vol.Optional("scan_interval", default=60): vol.All(int, vol.Range(min=30, max=600)),
         })
 
         return self.async_show_form(step_id="user", data_schema=schema)

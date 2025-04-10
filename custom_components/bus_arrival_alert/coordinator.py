@@ -22,6 +22,7 @@ class BusArrivalManager:
         self.scan_interval = scan_interval
         self.session = aiohttp.ClientSession()
         self._unsub_timer = None
+        self.latest_data = {}
 
     async def async_start(self):
         """Start the periodic fetching task."""
@@ -52,26 +53,7 @@ class BusArrivalManager:
 
     async def _async_fetch(self, now):
         """Fetch data and fire grouped events."""
-        now_time = datetime.now().time()
-        today = datetime.now().strftime("%A").lower()
-
         for stop in self.stops:
-            # Parse start and end time if needed
-            start_time = stop["start_time"]
-            end_time = stop["end_time"]
-
-            if isinstance(start_time, str):
-                start_time = datetime.strptime(start_time, "%H:%M").time()
-            if isinstance(end_time, str):
-                end_time = datetime.strptime(end_time, "%H:%M").time()
-
-            stop_days = stop.get("days")
-            if stop_days and today not in stop_days:
-                continue
-
-            if not (start_time <= now_time <= end_time):
-                continue
-
             stop_id = stop["stop_id"]
             line_names = stop.get("line_names")
 
@@ -90,19 +72,23 @@ class BusArrivalManager:
                 _LOGGER.error("Exception fetching data for stop %s: %s", stop_id, str(e))
                 continue
 
-            arrivals = {}
+            arrivals = []
 
             for bus in data:
                 if line_names and bus["lineName"] not in line_names:
                     continue
 
-                minutes_to_arrival = bus["timeToStation"] // 60
-                bus_line = bus["lineName"]
-                arrivals.setdefault(bus_line, []).append(minutes_to_arrival)
+                arrivals.append({
+                    "line": bus["lineName"],
+                    "station": bus["stationName"],
+                    "destination": bus["destinationName"],
+                    "minutes": bus["timeToStation"] // 60
+                })
+
+            self.latest_data[stop_id] = arrivals
 
             if arrivals:
-                for bus_line in arrivals:
-                    arrivals[bus_line].sort()
+                arrivals.sort(key=lambda x: x["minutes"])
 
                 _LOGGER.info("Buses arriving at stop %s: %s", stop_id, arrivals)
 
