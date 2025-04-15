@@ -9,13 +9,16 @@ PLATFORMS = ["sensor"]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Bus Arrival Alert from a config entry."""
-    data = entry.options if entry.options else entry.data
+    # Use options if they exist, otherwise use data
+    config = entry.options if entry.options else entry.data
 
-    stop_configs = data.get("stops", [])
-    scan_interval = data.get("scan_interval", 120)
+    stop_configs = config.get("stops", [])
+    scan_interval = config.get("scan_interval", 120)
 
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = {}
     manager = BusArrivalManager(hass, stop_configs, scan_interval)
-    hass.data[DOMAIN] = manager
+    hass.data[DOMAIN][entry.entry_id] = manager
     await manager.async_start()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -34,9 +37,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        manager = hass.data.get(DOMAIN)
+        manager = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         if manager:
             await manager.async_stop()
-            hass.data.pop(DOMAIN, None)
+        # Clean up DOMAIN if empty
+        if DOMAIN in hass.data and not hass.data[DOMAIN]:
+            hass.data.pop(DOMAIN)
 
     return unload_ok

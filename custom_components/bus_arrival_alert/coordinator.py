@@ -1,15 +1,14 @@
 """Coordinator to handle fetching bus arrivals and firing grouped events."""
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import aiohttp
 import async_timeout
-
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import MIN_SCAN_INTERVAL, MAX_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,9 +17,15 @@ class BusArrivalManager:
 
     def __init__(self, hass: HomeAssistant, stops: list[dict], scan_interval: int):
         self.hass = hass
-        self.stops = stops
+        seen = set()
+        unique_stops = []
+        for stop in stops:
+            if stop["stop_id"] not in seen:
+                unique_stops.append(stop)
+                seen.add(stop["stop_id"])
+        self.stops = unique_stops  # Deduplication fix
         self.scan_interval = scan_interval
-        self.session = aiohttp.ClientSession()
+        self.session = async_get_clientsession(hass)  # Use HA's session
         self._unsub_timer = None
         self.latest_data = {}
 
@@ -40,7 +45,6 @@ class BusArrivalManager:
             self._unsub_timer()
             self._unsub_timer = None
 
-        await self.session.close()
         _LOGGER.debug("Bus Arrival Manager stopped")
 
     async def add_stop(self, stop_data: dict):
@@ -90,12 +94,28 @@ class BusArrivalManager:
             if arrivals:
                 arrivals.sort(key=lambda x: x["minutes"])
 
-                _LOGGER.info("Buses arriving at stop %s: %s", stop_id, arrivals)
+                _LOGGER.debug("Buses arriving at stop %s: %s", stop_id, arrivals)
+
+                # Group the arrivals
+                grouped = {}
+                for bus in arrivals:
+                    key = (bus["line"], bus["destination"])
+                    grouped.setdefault(key, []).append(bus["minutes"])
+
+                grouped_arrivals = [
+                    {
+                        "line": line,
+                        "destination": destination,
+                        "minutes": sorted(minutes_list),
+                    }
+                    for (line, destination), minutes_list in grouped.items()
+                ]
 
                 self.hass.bus.async_fire(
                     "bus_arrival_alert",
                     {
                         "stop_id": stop_id,
-                        "arrivals": arrivals
+                        "arrivals": arrivals,
+                        "grouped_arrivals": grouped_arrivals,
                     }
                 )
